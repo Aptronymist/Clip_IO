@@ -30,11 +30,9 @@ class Clip_IO(scripts.Script):
 
     def title(self):
         return "Clip I/O"
-        pass
 
     def show(self, is_img2img):
         return scripts.AlwaysVisible
-        pass
 
     def ui(self, is_img2img):
         with gradio.Accordion("Clip input", open = False):
@@ -42,16 +40,7 @@ class Clip_IO(scripts.Script):
                 enabled = gradio.Checkbox(label = "Enable")
                 mode_positive = gradio.Dropdown(["Disabled", "Simple", "Directive"], value = "Disabled", max_choices = 1, label = "Positive prompt mode")
                 mode_negative = gradio.Dropdown(["Disabled", "Simple", "Directive"], value = "Disabled", max_choices = 1, label = "Positive prompt mode")
-                pass
-            pass
-        if not is_img2img:
-            return [enabled, mode_positive, mode_negative]
-            pass
-        else:
-            return [enabled, mode_positive, mode_negative]
-            pass
-        return []
-        pass
+        return [enabled, mode_positive, mode_negative]
     
     syntax_simple = r"""
     start: (FILE | PROMPT | SPACE)*
@@ -62,6 +51,8 @@ class Clip_IO(scripts.Script):
 
     def get_cond_simple(model, input: str, is_negative: bool) -> torch.Tensor | None:
         conds = []
+
+
         class Process(lark.Transformer):
             def FILE(self, token: lark.Token):
                 cond: torch.Tensor | None = None
@@ -72,68 +63,52 @@ class Clip_IO(scripts.Script):
                     cond = Clip_IO.conditioning_cache[filename_original]
                     if cond is not None:
                         conds.append(cond)
-                        pass
                     return
-                    pass
                 filename = os.path.join(os.path.dirname(__file__), "../conditioning", filename_original)
                 filename = os.path.realpath(filename)
                 if filename.endswith(".csv"):
                     cond = Clip_IO.load_csv_conditioning(filename)
-                    pass
                 elif filename.endswith(".pt"):
                     try:
                         cond = torch.load(filename)
-                        pass
                     except Exception:
                         cond = None
-                        pass
-                    pass
                 else:
                     if os.path.exists(filename) and not os.path.isdir(filename):
                         cond =  Clip_IO.load_csv_conditioning(filename)
                         if cond is None:
                             try:
                                 cond = torch.load(filename)
-                                pass
                             except Exception:
                                 cond = None
-                                pass
-                            pass
-                        pass
-                    if cond is None and os.path.exists(filename + ".csv"):
-                        cond = Clip_IO.load_csv_conditioning(filename + ".csv")
-                        pass
-                    if cond is None and not os.path.exists(filename + ".csv") and os.path.exists(filename + ".pt"):
+                    if cond is None and os.path.exists(f"{filename}.csv"):
+                        cond = Clip_IO.load_csv_conditioning(f"{filename}.csv")
+                    if (
+                        cond is None
+                        and not os.path.exists(f"{filename}.csv")
+                        and os.path.exists(f"{filename}.pt")
+                    ):
                         try:
-                            cond = torch.load(filename + ".pt")
-                            pass
+                            cond = torch.load(f"{filename}.pt")
                         except Exception:
                             cond = None
-                            pass
-                        pass
-                    pass
                 if cond is not None:
                     conds.append(cond.to(devices.device))
-                    pass
                 Clip_IO.conditioning_cache[filename_original] = cond
-                pass
+
             def PROMPT(self, token: lark.Token):
                 string = token.value
                 if string.startswith('"""') and string.endswith('"""') or string.startswith("'''") and string.endswith("'''"):
                     string = string[3:-3]
-                    pass
                 conds.append(model.get_learned_conditioning([string])[0].to(devices.device))
-                pass
+
             pass
+
         Process().transform(lark.Lark(Clip_IO.syntax_simple).parse(input))
-        if len(conds) != 0:
+        if conds:
             return torch.vstack(conds)
-            pass
-        else:
-            warnings.warn(f"{'Negative prompt' if is_negative else 'Positive prompt'} is empty. Retrieving conditioning for empty string.")
-            return model.get_learned_conditioning([""])[0]
-            pass
-        pass
+        warnings.warn(f"{'Negative prompt' if is_negative else 'Positive prompt'} is empty. Retrieving conditioning for empty string.")
+        return model.get_learned_conditioning([""])[0]
 
     syntax_directive = r"""
     start: (FILE | PROMPT | directive | SPACE)*
@@ -157,24 +132,18 @@ class Clip_IO(scripts.Script):
             self.name = name.lower()
             self.order = order
             self.inner = inner
-            pass
 
         def __lt__(self, other) -> bool:
             if type(self) != type(other):
                 raise TypeError()
-                pass
-            if self.order == other.order:
-                return True
-                pass
-            else:
-                return self.order < other.order
-                pass
-            pass
+            return True if self.order == other.order else self.order < other.order
         pass
 
     def get_cond_directive(model, input: str, is_negative: bool, p: processing.StableDiffusionProcessing) -> torch.Tensor | None:
         conds: list[torch.tensor] = []
         dirs: list[Clip_IO.Directive] = []
+
+
         class Process(lark.Transformer):
             def FILE(self, token: lark.Token):
                 cond: torch.Tensor | None = None
@@ -185,85 +154,66 @@ class Clip_IO(scripts.Script):
                     cond = Clip_IO.conditioning_cache[filename_original]
                     if cond is not None:
                         conds.append(cond)
-                        pass
                     return
-                    pass
                 filename = os.path.join(os.path.dirname(__file__), "../conditioning", filename_original)
                 filename = os.path.realpath(filename)
                 if filename.endswith(".csv"):
                     cond = Clip_IO.load_csv_conditioning(filename)
-                    pass
                 elif filename.endswith(".pt"):
                     try:
                         cond = torch.load(filename)
-                        pass
                     except Exception:
                         cond = None
-                        pass
-                    pass
                 else:
                     if os.path.exists(filename) and not os.path.isdir(filename):
                         cond =  Clip_IO.load_csv_conditioning(filename)
                         if cond is None:
                             try:
                                 cond = torch.load(filename)
-                                pass
                             except Exception:
                                 cond = None
-                                pass
-                            pass
-                        pass
-                    if cond is None and os.path.exists(filename + ".csv"):
-                        cond = Clip_IO.load_csv_conditioning(filename + ".csv")
-                        pass
-                    if cond is None and not os.path.exists(filename + ".csv") and os.path.exists(filename + ".pt"):
+                    if cond is None and os.path.exists(f"{filename}.csv"):
+                        cond = Clip_IO.load_csv_conditioning(f"{filename}.csv")
+                    if (
+                        cond is None
+                        and not os.path.exists(f"{filename}.csv")
+                        and os.path.exists(f"{filename}.pt")
+                    ):
                         try:
-                            cond = torch.load(filename + ".pt")
-                            pass
+                            cond = torch.load(f"{filename}.pt")
                         except Exception:
                             cond = None
-                            pass
-                        pass
-                    pass
                 if cond is not None:
                     conds.append(cond.to(devices.device))
-                    pass
                 Clip_IO.conditioning_cache[filename_original] = cond
-                pass
+
             def PROMPT(self, token: lark.Token):
                 string = token.value
                 if string.startswith('"""') and string.endswith('"""') or string.startswith("'''") and string.endswith("'''"):
                     string = string[3:-3]
-                    pass
                 conds.append(model.get_learned_conditioning([string])[0].to(devices.device))
-                pass
+
             def directive(self, args: list[lark.Token | lark.Tree]):
                 def flatten(arg: lark.Token | lark.Tree | list[lark.Token | lark.Tree]) -> str | lark.Token:
                     if type(arg) == lark.Token:
                         return arg.value
-                        pass
                     elif type(arg) == lark.Tree:
                         array = ""
                         for child in arg.children:
                             array += flatten(child)
-                            pass
                         return array
-                        pass
                     elif type(arg) == list:
                         array = ""
                         for component in arg:
                             array += flatten(component)
-                            pass
                         return array
-                        pass
                     else:
                         return arg
-                        pass
-                    pass
 
                 dirs.append(Clip_IO.Directive(args[0], args[1] if len(args) == 3 else 0, flatten(args[-1])))
-                pass
+
             pass
+
 
         Process().transform(lark.Lark(Clip_IO.syntax_directive).parse(input))
         i = torch.vstack(conds)
@@ -277,16 +227,11 @@ class Clip_IO(scripts.Script):
                         for d in range(i.shape[1]):
                             local = {"i": i, "o": o, "c": c, "p": p, "t": t, "d": d, "torch": torch.__dict__} | math.__dict__
                             o[t, d] = eval(dir.inner, None, local)
-                            pass
-                        pass
-                    pass
                 except Exception as e:
                     print(repr(e))
                     o = i
-                    pass
                 finally:
                     i = o.clone()
-                pass
             elif dir.name == "exec":
                 try:
                     local = {"i": i, "o": o, "c": c, "p": p, "torch": torch.__dict__} | math.__dict__
@@ -294,26 +239,18 @@ class Clip_IO(scripts.Script):
                 except Exception as e:
                     print(repr(e))
                     o = i
-                    pass
                 finally:
                     i = local["o"].clone()
-                pass
             else:
                 warnings.warn(f'Directive "{dir.name}" does not exist.')
-                pass
-            pass
         cond = i
 
-        if cond is not None and cond.shape[0] > 0 and (cond.shape[1] == 768 or cond.shape[1] == 1024):
+        if cond is not None and cond.shape[0] > 0 and cond.shape[1] in [768, 1024]:
             return cond.to(devices.device)
-            pass
-        else:
-            warnings.warn(f"{'Negative prompt' if is_negative else 'Positive prompt'} is empty. Retrieving conditioning for empty string.")
-            return model.get_learned_conditioning([""])[0]
-            pass
-        pass
+        warnings.warn(f"{'Negative prompt' if is_negative else 'Positive prompt'} is empty. Retrieving conditioning for empty string.")
+        return model.get_learned_conditioning([""])[0]
 
-    def my_get_learned_conditioning(model, prompts, steps, p: processing.StableDiffusionProcessing, is_negative = True):
+    def my_get_learned_conditioning(self, prompts, steps, p: processing.StableDiffusionProcessing, is_negative = True):
         """converts a list of prompts into a list of prompt schedules - each schedule is a list of ScheduledPromptConditioning, specifying the comdition (cond),
         and the sampling step at which this condition is to be replaced by the next one.
 
@@ -335,11 +272,8 @@ class Clip_IO(scripts.Script):
         if Clip_IO.enabled and (Clip_IO.mode_positive == "Directive" and not is_negative or Clip_IO.mode_negative == "Directive" and is_negative):
             # TODO: Implement own parser
             prompt_schedules = [[[steps, prompt]] for prompt in prompts]
-            pass
         else:
             prompt_schedules = prompt_parser.get_learned_conditioning_prompt_schedules(prompts, steps)
-            pass
-
         res = []
         cache = {}
         for prompt, prompt_schedule in zip(prompts, prompt_schedules):
@@ -351,32 +285,26 @@ class Clip_IO(scripts.Script):
 
             texts: list[str] = [x[1] for x in prompt_schedule]
             if Clip_IO.enabled and (Clip_IO.mode_positive == "Simple" and not is_negative or Clip_IO.mode_negative == "Simple" and is_negative):
-                conds = []
-                for text in texts:
-                    conds.append(Clip_IO.get_cond_simple(model, text, is_negative))
-                    pass
-                pass
+                conds = [Clip_IO.get_cond_simple(self, text, is_negative) for text in texts]
             elif Clip_IO.enabled and (Clip_IO.mode_positive == "Directive" and not is_negative or Clip_IO.mode_negative == "Directive" and is_negative):
-                conds = []
-                for text in texts:
-                    conds.append(Clip_IO.get_cond_directive(model, text, is_negative, p))
-                    pass
-                pass
+                conds = [
+                    Clip_IO.get_cond_directive(self, text, is_negative, p)
+                    for text in texts
+                ]
             else:
-                conds = model.get_learned_conditioning(texts)
-                pass
-
-            cond_schedule = []
-            for i, (end_at_step, text) in enumerate(prompt_schedule):
-                cond_schedule.append(prompt_parser.ScheduledPromptConditioning(end_at_step, conds[i].to(devices.device)))
-
+                conds = self.get_learned_conditioning(texts)
+            cond_schedule = [
+                prompt_parser.ScheduledPromptConditioning(
+                    end_at_step, conds[i].to(devices.device)
+                )
+                for i, (end_at_step, text) in enumerate(prompt_schedule)
+            ]
             cache[prompt] = cond_schedule
             res.append(cond_schedule)
 
         return res
-        pass
 
-    def my_get_multicond_learned_conditioning(model, prompts, steps, p: processing.StableDiffusionProcessing) -> prompt_parser.MulticondLearnedConditioning:
+    def my_get_multicond_learned_conditioning(self, prompts, steps, p: processing.StableDiffusionProcessing) -> prompt_parser.MulticondLearnedConditioning:
         """same as get_learned_conditioning, but returns a list of ScheduledPromptConditioning along with the weight objects for each prompt.
         For each prompt, the list is obtained by splitting the prompt using the AND separator.
 
@@ -385,14 +313,20 @@ class Clip_IO(scripts.Script):
 
         res_indexes, prompt_flat_list, prompt_indexes = prompt_parser.get_multicond_prompt_list(prompts)
 
-        learned_conditioning = prompt_parser.get_learned_conditioning(model, prompt_flat_list, steps, p, is_negative = False)
+        learned_conditioning = prompt_parser.get_learned_conditioning(
+            self, prompt_flat_list, steps, p, is_negative=False
+        )
 
-        res = []
-        for indexes in res_indexes:
-            res.append([prompt_parser.ComposableScheduledPromptConditioning(learned_conditioning[i], weight) for i, weight in indexes])
-
+        res = [
+            [
+                prompt_parser.ComposableScheduledPromptConditioning(
+                    learned_conditioning[i], weight
+                )
+                for i, weight in indexes
+            ]
+            for indexes in res_indexes
+        ]
         return prompt_parser.MulticondLearnedConditioning(shape=(len(prompts),), batch=res)
-        pass
 
     def load_csv_conditioning(filename: str | os.PathLike) -> torch.Tensor | None:
         filename = os.path.realpath(filename)
